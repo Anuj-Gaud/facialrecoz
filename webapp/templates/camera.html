@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FaceAttend — Live Camera</title>
+  <meta name="description" content="Live facial recognition with anti-spoofing blink detection">
+  <script>(function(){var t=localStorage.getItem('fa-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <style>
+    .cam-outer   { border-radius:16px; overflow:hidden; background:#000; aspect-ratio:16/9; position:relative; max-height:480px; }
+    .cam-feed    { width:100%; height:100%; object-fit:cover; display:block; }
+    .cam-ph      { width:100%; min-height:300px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; background:rgba(8,8,26,.6); padding:2rem; }
+    .status-bar  { position:absolute; top:.85rem; left:.85rem; display:flex; gap:.5rem; flex-wrap:wrap; }
+    .cbadge      { display:flex; align-items:center; gap:.4rem; background:rgba(0,0,0,.55); backdrop-filter:blur(8px); border-radius:999px; padding:.28rem .8rem; font-size:.73rem; font-weight:600; border:1px solid rgba(255,255,255,.1); }
+    .cbadge.live { color:#34d399; }
+    .two-col     { display:grid; grid-template-columns:1fr 320px; gap:1.25rem; align-items:start; }
+    .legend-item { display:flex; align-items:center; gap:.7rem; padding:.55rem 0; border-bottom:1px solid var(--glass-border); font-size:.84rem; }
+    .legend-item:last-child { border:none; }
+    .legend-dot  { width:14px; height:14px; border-radius:4px; flex-shrink:0; }
+    @media(max-width:860px){ .two-col { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+<nav>
+  <a href="/dashboard" class="nav-brand"><div class="brand-icon">👁️</div>FaceAttend</a>
+  <ul class="nav-links">
+    {% if current_role == 'admin' %}<li><a href="/admin">Admin</a></li>{% endif %}
+    <li><a href="/dashboard">Dashboard</a></li>
+    <li><a href="/camera" class="active">📷 Camera</a></li>
+    <li><a href="/history">History</a></li>
+    {% if current_role == 'teacher' or current_role == 'admin' %}<li><a href="/students">Students</a></li>{% endif %}
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <span class="role-badge {{ current_role }}">{{ current_role }}</span>
+      <span>{{ current_name }}</span>
+    </div>
+    <div class="live-badge" id="liveBadge" style="display:none"><div class="live-dot"></div>Live</div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀️</button>
+    <a href="/logout" class="btn btn-secondary" style="padding:.4rem .85rem;font-size:.8rem">Logout</a>
+  </div>
+</nav>
+
+<div class="main-content">
+  <div class="page-header">
+    <div>
+      <h1 class="page-title">📷 Live Camera</h1>
+      <p class="page-sub">Facial recognition with blink-based liveness detection — attendance marked automatically</p>
+    </div>
+    <div style="display:flex;gap:.75rem">
+      <button class="btn btn-primary"  id="startBtn" onclick="startCam()">▶ Start Camera</button>
+      <button class="btn btn-danger"   id="stopBtn"  onclick="stopCam()" style="display:none">⏹ Stop</button>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <!-- LEFT: Feed + legend -->
+    <div>
+      <div class="glass-card" style="padding:.6rem;margin-bottom:1.25rem">
+        <div class="cam-outer" id="camOuter">
+          <div class="cam-ph" id="camPh">
+            <div style="font-size:3rem">📷</div>
+            <p style="color:var(--muted)">Camera is offline</p>
+            <button class="btn btn-primary" onclick="startCam()">▶ Start Camera</button>
+          </div>
+          <img id="camFeed" class="cam-feed" style="display:none" alt="Live recognition feed">
+          <div class="status-bar" id="statusBar" style="display:none">
+            <div class="cbadge live"><div class="live-dot"></div>LIVE</div>
+            <div class="cbadge" style="color:var(--accent-light)">👁 Recognising</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Color legend -->
+      <div class="glass-card">
+        <div class="chart-label" style="margin-bottom:.85rem">🛡️ Liveness Detection — Anti-Spoofing</div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#10b981"></div>
+          <div><strong style="color:var(--text)">Green — LIVE ✓</strong><br><span style="color:var(--muted);font-size:.79rem">Face recognised + blink confirmed → attendance marked</span></div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#f97316"></div>
+          <div><strong style="color:var(--text)">Orange — BLINK TO VERIFY</strong><br><span style="color:var(--muted);font-size:.79rem">Known face detected, waiting for a natural blink</span></div>
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background:#ef4444"></div>
+          <div><strong style="color:var(--text)">Red — UNKNOWN</strong><br><span style="color:var(--muted);font-size:.79rem">Face not in the dataset — add student first</span></div>
+        </div>
+        <p style="margin-top:.85rem;font-size:.8rem;color:var(--muted);line-height:1.65">
+          The <strong style="color:var(--text)">Eye Aspect Ratio (EAR)</strong> is computed from 6 facial landmarks per eye.
+          When EAR drops below <code>0.22</code> for 2+ consecutive frames a
+          <strong style="color:var(--text)">blink is confirmed</strong> — proving a real person, not a printed photo.
+        </p>
+      </div>
+    </div>
+
+    <!-- RIGHT: Today's log -->
+    <div>
+      <div class="glass-card">
+        <div class="table-header" style="margin-bottom:.6rem">
+          <span class="table-title">📋 Marked Today</span>
+          <button class="btn btn-secondary" style="font-size:.72rem;padding:.28rem .65rem" onclick="fetchLog()">↻ Refresh</button>
+        </div>
+        <div id="logWrap" style="min-height:90px">
+          <div class="no-data" style="padding:2rem">
+            <div class="nd-icon">📷</div>
+            <p>Start camera to see the log</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ── Theme ────────────────────────────────────────────────────────────────────
+function toggleTheme(){
+  const d=document.documentElement,n=d.getAttribute('data-theme')==='light'?'dark':'light';
+  d.setAttribute('data-theme',n); localStorage.setItem('fa-theme',n);
+  document.getElementById('themeBtn').textContent=n==='light'?'🌙':'☀️';
+}
+(function(){const t=document.documentElement.getAttribute('data-theme');
+  const b=document.getElementById('themeBtn'); if(b) b.textContent=t==='light'?'🌙':'☀️';})();
+
+// ── Toast ────────────────────────────────────────────────────────────────────
+function toast(msg,type='success'){
+  const el=document.createElement('div'); el.className=`toast ${type}`;
+  el.innerHTML=`<span>${type==='success'?'✅':'❌'}</span> ${msg}`;
+  document.getElementById('toastWrap').appendChild(el);
+  setTimeout(()=>el.remove(),4000);
+}
+
+// ── Camera ───────────────────────────────────────────────────────────────────
+var logTimer=null;
+
+function startCam(){
+  document.getElementById('startBtn').textContent='Starting…';
+  fetch('/camera/start',{method:'POST'}).then(r=>r.json()).then(d=>{
+    if(d.ok){
+      document.getElementById('camPh').style.display='none';
+      const f=document.getElementById('camFeed');
+      f.src='/video_feed?t='+Date.now(); f.style.display='block';
+      document.getElementById('statusBar').style.display='flex';
+      document.getElementById('startBtn').style.display='none';
+      document.getElementById('stopBtn').style.display='';
+      document.getElementById('liveBadge').style.display='flex';
+      toast('Camera started — blink to verify liveness!');
+      fetchLog(); logTimer=setInterval(fetchLog,5000);
+    } else {
+      toast(d.msg||'Cannot open camera. Is a webcam connected?','error');
+      document.getElementById('startBtn').textContent='▶ Start Camera';
+    }
+  }).catch(()=>{toast('Network error.','error');document.getElementById('startBtn').textContent='▶ Start Camera';});
+}
+
+function stopCam(){
+  fetch('/camera/stop',{method:'POST'}).then(()=>{
+    const f=document.getElementById('camFeed'); f.style.display='none'; f.src='';
+    document.getElementById('statusBar').style.display='none';
+    document.getElementById('camPh').style.display='flex';
+    document.getElementById('startBtn').style.display='';
+    document.getElementById('startBtn').textContent='▶ Start Camera';
+    document.getElementById('stopBtn').style.display='none';
+    document.getElementById('liveBadge').style.display='none';
+    if(logTimer){ clearInterval(logTimer); logTimer=null; }
+    toast('Camera stopped.');
+  });
+}
+
+function fetchLog(){
+  fetch('/attendance_today').then(r=>r.json()).then(rows=>{
+    const el=document.getElementById('logWrap');
+    if(!rows.length){
+      el.innerHTML='<div class="no-data" style="padding:1.5rem"><p style="color:var(--muted);font-size:.85rem">No attendance recorded yet today.</p></div>';
+      return;
+    }
+    el.innerHTML='<table style="width:100%"><thead><tr><th>#</th><th>Name</th><th>Time</th></tr></thead><tbody>'
+      +rows.map((r,i)=>`<tr>
+        <td style="color:var(--muted)">${i+1}</td>
+        <td><strong>${r.name}</strong></td>
+        <td><span class="badge present">✓ ${r.time}</span></td></tr>`).join('')
+      +'</tbody></table>';
+  }).catch(()=>{});
+}
+
+// Stop camera when user leaves this page
+window.addEventListener('beforeunload',()=>{ navigator.sendBeacon('/camera/stop'); });
+
+// Check if already running on load
+fetch('/camera/is_active').then(r=>r.json()).then(d=>{ if(d.active) startCam(); });
+</script>
+</body>
+</html>

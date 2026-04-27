@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FaceAttend — Login</title>
+  <script>(function(){var t=localStorage.getItem('fa-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="brand-icon">👁️</div>
+      FaceAttend
+    </div>
+    <p class="login-tagline">Sign in to access your attendance portal</p>
+
+    {% if error %}
+    <div class="login-error">⚠️ {{ error }}</div>
+    {% endif %}
+
+    <form method="POST" action="/login">
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <input type="text" name="username" id="username" class="form-input"
+               placeholder="Enter your username" autocomplete="username" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <input type="password" name="password" id="password" class="form-input"
+               placeholder="Enter your password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:.5rem">
+        Sign In →
+      </button>
+    </form>
+
+    <div class="login-footer">
+      <span style="color:rgba(148,163,184,0.5)">─────────</span>
+      &nbsp; Default admin: <code style="color:var(--accent-light)">admin / admin123</code> &nbsp;
+      <span style="color:rgba(148,163,184,0.5)">─────────</span>
+    </div>
+  </div>
+</div>
+<button class="theme-btn" id="themeBtn" onclick="toggleTheme()"
+  style="position:fixed;top:1.25rem;right:1.25rem;z-index:99">☀️</button>
+<script>
+function toggleTheme(){
+  const d=document.documentElement,n=d.getAttribute('data-theme')==='light'?'dark':'light';
+  d.setAttribute('data-theme',n); localStorage.setItem('fa-theme',n);
+  document.getElementById('themeBtn').textContent=n==='light'?'🌙':'☀️';
+}
+(function(){const t=document.documentElement.getAttribute('data-theme');
+  const b=document.getElementById('themeBtn'); if(b) b.textContent=t==='light'?'🌙':'☀️';})();
+</script>
+</body>
+</html>

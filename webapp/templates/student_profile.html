@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FaceAttend — {{ student_name }}</title>
+  <script>(function(){var t=localStorage.getItem('fa-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+<nav>
+  <a href="/dashboard" class="nav-brand"><div class="brand-icon">👁️</div>FaceAttend</a>
+  <ul class="nav-links">
+    {% if current_role == 'admin' %}<li><a href="/admin">Admin</a></li>{% endif %}
+    <li><a href="/dashboard">Dashboard</a></li>
+    <li><a href="/camera">📷 Camera</a></li>
+    <li><a href="/history">History</a></li>
+    <li><a href="/students" class="active">Students</a></li>
+  </ul>
+  <div class="nav-right">
+    <div class="nav-user">
+      <span class="role-badge {{ current_role }}">{{ current_role }}</span>
+      <span>{{ current_name }}</span>
+    </div>
+    <button class="theme-btn" id="themeBtn" onclick="toggleTheme()">☀️</button>
+    <a href="/logout" class="btn btn-secondary" style="padding:.4rem .85rem;font-size:.8rem">Logout</a>
+  </div>
+</nav>
+
+<div class="main-content">
+  <!-- HEADER -->
+  <div class="page-header">
+    <div style="display:flex;align-items:center;gap:1.25rem">
+      {% if photo %}
+      <img src="/student_photo/{{ student_name }}/{{ photo }}" alt="{{ student_name }}"
+           style="width:68px;height:68px;border-radius:50%;object-fit:cover;border:3px solid var(--accent);flex-shrink:0"
+           onerror="this.style.display='none';document.getElementById('avatarPh').style.display='flex'">
+      <div id="avatarPh" style="display:none;width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--cyan));align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">{{ student_name[0]|upper }}</div>
+      {% else %}
+      <div style="width:68px;height:68px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--cyan));display:flex;align-items:center;justify-content:center;font-size:1.6rem;flex-shrink:0">{{ student_name[0]|upper }}</div>
+      {% endif %}
+      <div>
+        <h1 class="page-title">{{ student_name }}</h1>
+        <p class="page-sub">Student Profile — {{ this_month }}</p>
+      </div>
+    </div>
+    <a href="/students" class="btn btn-secondary">← Back to Students</a>
+  </div>
+
+  <!-- STAT CARDS -->
+  <div class="stats-grid">
+    <div class="glass-card stat-card">
+      <div class="stat-icon green">📅</div>
+      <div>
+        <div class="stat-label">Days Present (Month)</div>
+        <div class="stat-value green-text">{{ month_present }}</div>
+      </div>
+    </div>
+    <div class="glass-card stat-card">
+      <div class="stat-icon purple">🏫</div>
+      <div>
+        <div class="stat-label">Total School Days</div>
+        <div class="stat-value purple-text">{{ total_days }}</div>
+      </div>
+    </div>
+    <div class="glass-card stat-card">
+      <div class="stat-icon {% if percentage >= 75 %}green{% else %}red{% endif %}">
+        {% if percentage >= 75 %}✅{% else %}⚠️{% endif %}
+      </div>
+      <div>
+        <div class="stat-label">Attendance %</div>
+        <div class="stat-value {% if percentage >= 75 %}green-text{% else %}red-text{% endif %}">{{ percentage }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHART + STATUS -->
+  <div class="charts-grid" style="margin-bottom:1.5rem">
+    <div class="glass-card">
+      <div class="chart-label">This Month</div>
+      <div class="chart-wrap"><canvas id="donutChart"></canvas></div>
+    </div>
+    <div class="glass-card">
+      <div class="chart-label">Attendance Status</div>
+      <div style="display:flex;align-items:center;justify-content:center;height:210px;flex-direction:column;gap:1rem">
+        {% if percentage >= 75 %}
+        <div style="font-size:4rem">🎉</div>
+        <p style="font-size:1.1rem;font-weight:600;color:#34d399">Great attendance!</p>
+        <p style="color:var(--muted);font-size:.875rem">Above the 75% threshold.</p>
+        {% elif percentage >= 50 %}
+        <div style="font-size:4rem">⚠️</div>
+        <p style="font-size:1.1rem;font-weight:600;color:#fbbf24">Needs improvement</p>
+        <p style="color:var(--muted);font-size:.875rem">Try to attend more regularly.</p>
+        {% else %}
+        <div style="font-size:4rem">🚨</div>
+        <p style="font-size:1.1rem;font-weight:600;color:#f87171">Low attendance</p>
+        <p style="color:var(--muted);font-size:.875rem">Below 50% — please attend regularly.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RECORDS TABLE -->
+  <div class="glass-card">
+    <div class="table-header">
+      <span class="table-title">Attendance Log — All Records</span>
+      <span style="color:var(--muted);font-size:.875rem">{{ records|length }} total entries</span>
+    </div>
+    {% if records %}
+    <table>
+      <thead><tr><th>#</th><th>Date</th><th>Time</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td style="color:var(--muted)">{{ loop.index }}</td>
+          <td><strong>{{ r[0] }}</strong></td>
+          <td>{{ r[1] }}</td>
+          <td><span class="badge present">✓ Present</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="no-data">
+      <div class="nd-icon">📷</div>
+      <p>No attendance recorded yet.</p>
+      <p style="margin-top:.4rem;font-size:.8rem">Run the camera to get this student marked present.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+new Chart(document.getElementById('donutChart'),{
+  type:'doughnut',
+  data:{
+    labels:['Present','Absent'],
+    datasets:[{data:[{{ month_present }},{{ [total_days - month_present, 0]|max }}],
+      backgroundColor:['#10b981','#ef4444'],borderWidth:0,hoverOffset:4}]
+  },
+  options:{responsive:true,maintainAspectRatio:false,cutout:'70%',
+    plugins:{legend:{position:'bottom',labels:{color:'#94a3b8',font:{family:'Inter',size:12}}}}}
+});
+
+function toggleTheme(){
+  const d=document.documentElement,n=d.getAttribute('data-theme')==='light'?'dark':'light';
+  d.setAttribute('data-theme',n); localStorage.setItem('fa-theme',n);
+  document.getElementById('themeBtn').textContent=n==='light'?'🌙':'☀️';
+}
+(function(){const t=document.documentElement.getAttribute('data-theme');
+  const b=document.getElementById('themeBtn'); if(b) b.textContent=t==='light'?'🌙':'☀️';})();
+</script>
+</body>
+</html>

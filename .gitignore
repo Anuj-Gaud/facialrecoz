@@ -1,0 +1,50 @@
+# ── Python ──────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+*.spec
+
+# ── Virtual environments ─────────────────────────────────
+venv/
+env/
+.venv/
+.env/
+
+# ── Database (contains personal attendance data) ────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Face encodings (large binary, auto-regenerated) ──────
+*.pkl
+known_face_encodings.pkl
+
+# ── Student photos (personal images — keep private) ──────
+dataset_images/
+
+# ── Runtime files ────────────────────────────────────────
+reload_encodings.flag
+*.flag
+
+# ── Environment variables / secrets ─────────────────────
+.env
+.env.*
+secrets.py
+
+# ── IDE / Editor ─────────────────────────────────────────
+.vscode/
+.idea/
+*.code-workspace
+*.suo
+*.user
+Thumbs.db
+.DS_Store
+
+# ── Logs ────────────────────────────────────────────────
+*.log
+logs/
